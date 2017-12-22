@@ -1,0 +1,26 @@
+{
+  "name": "ja223gs-examination-3",
+  "version": "1.0.0",
+  "description": "Exam assignment 3 Server-based Web Programming Linnaeus University",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/1dv523/ja223gs-examination-3.git"
+  },
+  "keywords": [
+    "assignment",
+    "webhooks",
+    "websockets",
+    "production"
+  ],
+  "author": "Janty Azmat",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/1dv523/ja223gs-examination-3/issues"
+  },
+  "homepage": "https://github.com/1dv523/ja223gs-examination-3#readme"
+}
