@@ -1,0 +1,146 @@
+.nav-container label {
+  float: left;
+  position: relative;
+  width: 28px;
+  height: 100%;
+  padding: 6px;
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+.nav-but {
+  width: 0px;
+  height: 0px;
+  margin-left: -50px;
+  float: left;
+}
+
+.nav-text {
+  margin-left: 35px;
+  font-size: 16px;
+  padding: 8px 3px;
+  border-radius: 3px;
+  user-select: none;
+}
+
+.nav-text:hover {
+  background-color: lightgray;
+}
+
+.nav-container label:hover .nav-text {
+  background-color: lightgray;
+}
+
+.nav-strips,
+.nav-strips:before,
+.nav-strips:after {
+  position: absolute;
+  border-radius: 15%;
+  background-color: white;
+  transition: all 0.3s ease-out;
+}
+
+.nav-strips {
+  height: 3px;
+  width: 80%;
+  top: 50%;
+}
+
+.nav-strips:before,
+.nav-strips:after {
+  content: "";
+  height: 100%;
+  width: 100%;
+}
+
+.nav-strips:before {
+  top: 400%;
+}
+
+.nav-strips:after {
+  top: -400%;
+}
+
+.nav-container label:focus-within .nav-strips,
+.nav-container label:focus-within .nav-strips:before,
+.nav-container label:focus-within .nav-strips:after {
+  background-color: Highlight;
+}
+
+/* This block is for the damn Edge */
+.nav-but:focus .nav-strips,
+.nav-but:focus .nav-strips:before,
+.nav-but:focus .nav-strips:after {
+  background-color: Highlight;
+}
+
+.nav-container label:focus-within ~ .nav-text {
+  outline: 1px solid Highlight;
+}
+
+/* This block is for the damn Edge */
+.nav-but:focus ~ .nav-text {
+  outline: 1px solid Highlight;
+}
+
+.nav-container label:focus-within .nav-strips {
+  transform: rotate(90deg);
+}
+
+/* This block is for the damn Edge */
+.nav-but:focus ~ .nav-strips {
+  transform: rotate(90deg);
+}
+
+.nav-container label:focus-within .nav-strips:before {
+  top: 200%;
+  transform: rotate(-20deg);
+}
+
+/* This block is for the damn Edge */
+.nav-but:focus ~ .nav-strips:before {
+  top: 200%;
+  transform: rotate(-20deg);
+}
+
+.nav-container label:focus-within .nav-strips:after {
+  top: -200%;
+  transform: rotate(20deg);
+}
+
+/* This block is for the damn Edge */
+.nav-but:focus ~ .nav-strips:after {
+  top: -200%;
+  transform: rotate(20deg);
+}
+
+.nav-menu {
+  position: absolute;
+  border-radius: 5px;
+  box-shadow: 3px 3px 15px grey;
+  padding: 10px;
+  top: 135%;
+  left: 2px;
+  z-index: 2;
+  width: 250px;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease-out;
+}
+
+.nav-menu a {
+  display: block;
+  float: initial;
+  padding: 12px;
+}
+
+.nav-container label:focus-within .nav-menu {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* This block is for the damn Edge */
+.nav-but:focus ~ .nav-menu {
+  opacity: 1;
+  visibility: visible;
+}

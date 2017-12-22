@@ -1,0 +1,31 @@
+header {
+  flex: 0 0 auto;
+  padding: 3px;
+  position: relative;
+}
+
+header a {
+  float: left;
+  color: white;
+  font-size: 16px;
+  padding: 8px;
+  border-radius: 3px;
+  text-decoration: none;
+}
+
+header a:hover {
+  background-color: lightgray;
+}
+
+.user-header-container {
+  float: right;
+}
+
+.user-header {
+  float: left;
+}
+
+.user-welcome {
+  margin: 0px 10px 0px 3px;
+  font-size: 11px;
+}

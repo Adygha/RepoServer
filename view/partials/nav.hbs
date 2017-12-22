@@ -1,0 +1,12 @@
+<nav class="nav-container">
+  <label>
+    <input type="radio" class="nav-but"><span class="nav-strips"></span><span class="nav-text">MENU</span>
+    <nav class="nav-menu">
+      {{#if theNavAnchs}}
+        {{#each theNavAnchs}}
+          <a href="{{ this.href }}">{{ this.title }}</a>
+        {{/each}}
+      {{/if}}
+    </nav>
+  </label>
+</nav>

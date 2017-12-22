@@ -1,0 +1,30 @@
+[class^='msg-'] {
+  position: absolute;
+  padding: 10px;
+  text-align: center;
+  left: 10%;
+  top: calc(100% + 2px);
+  width: 80%;
+  border-radius: 6px;
+  z-index: 2;
+  animation: hide-it 0.5s 1;
+  animation-delay: 4s;
+  animation-fill-mode: forwards;
+}
+
+.msg-err {
+  background-color: orange;
+}
+
+.msg-info {
+  background-color: skyblue;
+}
+
+@keyframes hide-it {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
