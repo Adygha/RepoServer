@@ -47,6 +47,7 @@ module.exports = class {
 
     // Next, the routes:
     this._svrApp.use('/', require('./index'))
+    this._svrApp.use('/', require('./login'))
 
     this._svrApp.use((req, resp, next) => resp.status(404).render('error/404'))
     this._svrApp.use(this._errorHandler.bind(this)) // To maybe filter the errors later
@@ -113,7 +114,7 @@ module.exports = class {
    * @param {Function} next the function to continue the chain
    */
   _mixedMid (req, resp, next) {
-    if (req.session.theUser) resp.locals.theUser = req.session.theUser // Pass the user to the header
+    if (req.session.theGithubAccessToken && req.session.theUser) resp.locals.theUser = req.session.theUser // Pass the user to the header
     resp.locals.theNavAnchs = THE_CONF.theNavAnchs // Pass the header links/anchors to the header
     // resp.set('Cache-Control', 'no-cache, private, no-store, must-revalidate, max-stale=0, post-check=0, pre-check=0') // Recommended (not tested)
     this._isMaintenance // Checks if under maintenance

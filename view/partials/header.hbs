@@ -5,13 +5,8 @@
     {{#if theUser}}
       <p>
         Welcome [
-        {{#if theUser.firstName}}
-          {{theUser.firstName}}
-          {{#if theUser.lastName}}
-            {{theUser.lastName}}
-          {{/if}}
-        {{else if theUser.lastName}}
-          {{theUser.lastName}}
+        {{#if theUser.displayName}}
+          {{theUser.theUser.displayName}}
         {{else}}
           {{theUser.userName}}
         {{/if}}
@@ -21,16 +16,16 @@
   </div>
   <div class="user-header">
     {{#if theUser}}
-      <a href="/user">User Page</a>
-    {{else}}
-      <a href="/user/create">Create Account</a>
+      <a href="/user">Your Repos</a>
+    {{!-- {{else}}
+      <a href="/user/create">Create Account</a> --}}
     {{/if}}
   </div>
   <div class="user-header">
     {{#if theUser}}
-      <a href="/login?logout=1">Logout</a>
+      <a href="/login?logout=1">GitHub Logout</a>
     {{else}}
-      <a href="/login">Login</a>
+      <a href="/login">GitHub Login</a>
     {{/if}}
   </div>
 </div>
