@@ -11,10 +11,10 @@ module.exports = {
   /**
    * A GET HTTP method that uses promise.
    * @param {String} theURL the URL to run GET against
-   * @param {String} userAgentHeader the user-agent header if needed (needed by github)
-   * @returns {Promise} a promise that holds the response payload data and the last URL used
+   * @param {String} theHeaders the additional headers if needed
+   * @returns {Promise<Buffer>} a promise that holds the response payload data and the last URL used
    */
-  promGET: function (theURL, userAgentHeader, authorizationHeader) {
+  promGET: function (theURL, theHeaders) {
     return new Promise((resolve, reject) => {
       let tmpURL = THE_URL.parse(theURL)
       let tmpProt
@@ -25,7 +25,7 @@ module.exports = {
       } else {
         return reject(new Error('The URL must be a full HTTP(s) URL.'))
       }
-      tmpProt.get({protocol: tmpURL.protocol, hostname: tmpURL.hostname, port: tmpURL.port, path: tmpURL.path, headers: {'User-Agent': userAgentHeader || '', 'Authorization': authorizationHeader || ''}}, resp => { // A GET request using options
+      tmpProt.get({protocol: tmpURL.protocol, hostname: tmpURL.hostname, port: tmpURL.port, path: tmpURL.path, headers: theHeaders}, resp => { // A GET request using options
         if (resp.statusCode === 200) { // The normal response
           let tmpPayLoad = []
           resp.addListener('data', ch => tmpPayLoad.push(ch)).once('end', () => resolve(Buffer.concat(tmpPayLoad))) // Resolve the payload
@@ -45,10 +45,10 @@ module.exports = {
    * A POST HTTP method that uses promise.
    * @param {String} theURL the URL to run POST against
    * @param {String} theData the data to be sent with POST
-   * @param {String} userAgentHeader the user-agent header if needed (needed by github)
-   * @returns {Promise} a promise that holds the response payload data if any and the last URL used
+   * @param {String} theHeaders the additional headers if needed
+   * @returns {Promise<Buffer>} a promise that holds the response payload data if any and the last URL used
    */
-  promPOST: function (theURL, theData, userAgentHeader) {
+  promPOST: function (theURL, theData, theHeaders) {
     return new Promise((resolve, reject) => {
       let tmpURL = THE_URL.parse(theURL)
       let tmpProt
@@ -59,7 +59,8 @@ module.exports = {
       } else {
         return reject(new Error('The URL must be a full HTTP(s) URL.'))
       }
-      tmpProt.request({method: 'POST', protocol: tmpURL.protocol, hostname: tmpURL.hostname, port: tmpURL.port, path: tmpURL.path, headers: {'content-type': 'application/x-www-form-urlencoded', 'User-Agent': userAgentHeader || ''}}, resp => { // A POST request using options
+      theHeaders['content-type'] = 'application/x-www-form-urlencoded'
+      tmpProt.request({method: 'POST', protocol: tmpURL.protocol, hostname: tmpURL.hostname, port: tmpURL.port, path: tmpURL.path, headers: theHeaders}, resp => { // A POST request using options
         if (resp.statusCode === 200) { // In case there was a direct content for the result of POST
           let tmpPayLoad = []
           resp.addListener('data', ch => tmpPayLoad.push(ch)).once('end', () => resolve(Buffer.concat(tmpPayLoad))) // Resolve the payload
