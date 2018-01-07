@@ -3,14 +3,15 @@
  */
 
 const THE_API = {
-  APP_SCOPE: 'admin:org_hook', // The permission scope requested from the user (only organization hooks; others are public read)
+  APP_SCOPE: 'admin:repo_hook', // The permission scope requested from the user (only organization hooks; others are public read)
   OAUTH_URL: 'https://github.com/login/oauth/authorize', // The API URL to initiate create/login an access-token
   ACC_TOK_URL: 'https://github.com/login/oauth/access_token', // The API URL to validate create/login an access-token
   ACC_TOK_CHK_REVOKE_URL: 'https://api.github.com/applications/', // The API URL to check/revoke an access-token
-  USER_URL: 'https://api.github.com/user' // The API URL to get user info
+  USER_URL: 'https://api.github.com/user' // The API URL to get user info (we get other URLs using the API responds)
 }
 const THE_HTTPS_PROM = require('../libs/httpsProm')
 const THE_QUERY_STR = require('querystring')
+const THE_WEBSK = require('websocket-driver')
 // const THE_CRYPT = require('crypto')
 
 class GithubCommunicator {
@@ -19,15 +20,76 @@ class GithubCommunicator {
    * @param {String} githubAppClientID the client-id for the application at github
    * @param {String} githubAppClientSecret the client-secret for the application at github
    * @param {String} appName the github's app name to pass as a user-agent (or any other name)
+   * @param {String} websockPath the relative path that the websockets connect to
    */
-  constructor (githubAppClientID, githubAppClientSecret, appName) {
+  constructor (githubAppClientID, githubAppClientSecret, appName, websockPath) {
     this._appID = githubAppClientID
     this._appSecret = githubAppClientSecret
     this._appName = appName
+    this._websockPath = websockPath
+    this._webSucks = {} // Will contain the still-connected client websockets (websocket record)
+    this._nextWebSuckID = -1 // To ID the next client websockets if the user is not logged in (minus for not logged-in -anonymous id-)
     this._appAuthHeader = { // The headers used for some API that needs app's authentication
       'User-Agent': this._appName,
       Authorization: 'Basic ' + Buffer.from(githubAppClientID + ':' + githubAppClientSecret).toString('base64')
     }
+  }
+
+  /**
+   * Checks if the incoming request is upgrading to a websocket protocol, and handles it accordingly.
+   * @param {Request} req the incoming request
+   * @param {Socket} socket the communicating socket
+   * @param {Buffer} body initial websocket body (couldn't find a good documentation about it; it's always initially empty in my case)
+   */
+  handleProbableWebsocket (req, socket, body) {
+    if (req.url === this._websockPath && THE_WEBSK.isWebSocket(req)) {
+      let tmpID = req.session.theUser ? (req.session.theUser.id).toString() : (this._nextWebSuckID--).toString() // Depends if logged-in
+      if (this._webSucks[tmpID]) this._webSucks[tmpID].close() // Just in case it was still open from before (no doubles)
+      this._webSucks[tmpID] = THE_WEBSK.http(req) // keep it in the record
+      this._webSucks[tmpID].io.write(body) // Supposed to put the first data to the communication stream
+      socket.pipe(this._webSucks[tmpID].io).pipe(socket) // Supposed to prepare the back and forth communications
+      // this._webSucks[tmpID].messages.addListener('data', inData => this.emit('data', tmpID, inData)) // Just re-emit for now if needed (may delete)
+      this._webSucks[tmpID].once('close', () => { // Delete on close
+        // this._webSucks[tmpID].messages.removeAllListeners('data')
+        delete this._webSucks[tmpID]
+      })
+      this._webSucks[tmpID].start() // Start websocket communication
+    }
+  }
+
+  /**
+   * Broadcast data to all listening websockets, while exempting an ID if needed
+   * @param {any} theData the data to be broadcasted
+   * @param {String} idToExempt an optional integer ID (as a string; it will be converted to
+   *                            string anyway) to be exempt from the broadcast
+   */
+  websocketBroadcast (theData, idToExempt) {
+    let tmpAll
+    if (idToExempt) { // When exempting an ID
+      let tmpExID = typeof idToExempt === 'string' ? idToExempt : idToExempt.toString()
+      tmpAll = Object.assign({}, this._webSucks)
+      delete tmpAll[tmpExID]
+    } else {
+      tmpAll = this._webSucks
+    }
+    for (let id in tmpAll) tmpAll[id].messages.write(theData)
+  }
+
+  /**
+   * Send data to specific websocket ID (can be github's user id or the anonymous id)
+   * @param {any} theData the data to be send
+   * @param {String} theID the ID of the websocket
+   */
+  websocketSend (theData, theID) {
+    let tmpID = typeof theID === 'string' ? theID : theID.toString()
+    this._webSucks[tmpID].messages.write(theData)
+  }
+
+  /**
+   * Closes all connected websockets
+   */
+  websocketCloseAll () {
+    for (let id in this._webSucks) this._webSucks[id].close() // Deleting will happen at the event listener
   }
 
   /**
@@ -101,8 +163,8 @@ class GithubCommunicator {
         theReq.session.regenerate(err => {
           if (err) return reject(err)
           let tmpUser = JSON.parse(userDataBuf.toString())
-          theReq.session.theGithubAccessToken = tmpToken // Keep it in session
-          theReq.session.theUser = {displayName: tmpUser.name, userName: tmpUser.login} // Extract only needed data and keep it with session
+          theReq.session.theGithubAccessToken = tmpToken // Keep it in session (but away from user object just in case)
+          theReq.session.theUser = tmpUser // We'll need the URLs in the object but will extract only needed data to the view later
           resolve()
         })
       })
@@ -132,11 +194,11 @@ class GithubCommunicator {
 
   /**
    * Gets the guthub's user data object
-   * @param {String} theAccToken the user's access-token
+   * @param {String} theUserAccToken the user's access-token
    * @returns {Promise<Object>} the guthub's user data object
    */
-  getUserData (theAccToken) {
-    return THE_HTTPS_PROM.promGET(THE_API.USER_URL, this._userAuthHeaderFactory(theAccToken))
+  getUserData (theUserAccToken) {
+    return THE_HTTPS_PROM.promGET(THE_API.USER_URL, this._userAuthHeaderFactory(theUserAccToken))
   }
 
   /**

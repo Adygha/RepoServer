@@ -15,6 +15,8 @@ const ConsoleView = require('../view/ConsoleView')
 const DbConn = require('../model/DbConnection')
 const MongoStore = require('connect-mongo')(THE_SESS)
 
+const THE_GIHUB_COMM = require('../view/githubComm')(THE_SEC_CONF.githubAppClientID, THE_SEC_CONF.githubAppClientSecret, THE_SEC_CONF.appName, '/websock')
+
 module.exports = class {
   constructor () {
     this._isMaintenance = false
@@ -34,13 +36,14 @@ module.exports = class {
       layoutsDir: THE_PATH.join(process.cwd(), 'view/layouts'),   //
       partialsDir: THE_PATH.join(process.cwd(), 'view/partials'), // Needed for changing the 'views' name (or else errors happen).
       defaultLayout: 'main',
-      extname: '.hbs'
+      extname: '.hbs',
+      helpers: {toJSON: JSON.stringify} // To pass data to javascript files at the client side
     }))
     this._svrApp.set('view engine', '.hbs')
     this._svrApp.set('views', THE_PATH.join(process.cwd(), 'view')) // Just changing the 'views' name
     // this._svrApp.use(THE_PARSE.json()) // If needed later
     this._svrApp.use(THE_PARSE.urlencoded({extended: true}))
-    THE_SEC_CONF.sessOption.store = new MongoStore({mongooseConnection: this._dbModel.getConnection()}) // Add connect-mongo to options
+    THE_SEC_CONF.sessOption.store = new MongoStore({mongooseConnection: this._dbModel.getConnection(), collection: 'assign3sess'}) // Add connect-mongo to options
     this._svrApp.use(THE_SESS(THE_SEC_CONF.sessOption))
     this._svrApp.use(this._flashMid) // We will need the flash messages
     this._svrApp.use(this._mixedMid.bind(this))
@@ -48,6 +51,7 @@ module.exports = class {
     // Next, the routes:
     this._svrApp.use('/', require('./index'))
     this._svrApp.use('/', require('./login'))
+    this._svrApp.use('/', require('./user'))
 
     this._svrApp.use((req, resp, next) => resp.status(404).render('error/404'))
     this._svrApp.use(this._errorHandler.bind(this)) // To maybe filter the errors later
@@ -63,6 +67,7 @@ module.exports = class {
       this._svr.listen(THE_CONF.port, () => this._consView.displayMessage('Server re-started...'))
     } else if (!this._svr) { // If no listening server yet
       this._svr = this._svrApp.listen(THE_CONF.port, () => this._consView.displayMessage('Server started...'))
+      this._svr.addListener('upgrade', THE_GIHUB_COMM.handleProbableWebsocket.bind(THE_GIHUB_COMM))
     }
     if (this._isMaintenance) this.toggleMaintenaceMode()
   }
@@ -75,14 +80,16 @@ module.exports = class {
   stopServer (isFinalStop) {
     if (this._svr.listening) this._svr.close(() => this._consView.displayMessage('Stopping server...')) // Only stop if it's listening
     if (isFinalStop) { // If preparing to close (doen't matter if this one raced)
-      this._consView.removeAllListeners()
-      this._consView.endWatch()
-      this._dbModel.closeConnection()
+      this._consView.removeAllListeners()   // Detach the console
+      this._consView.endWatch()             //
+      THE_GIHUB_COMM.websocketCloseAll() // Close websockets
+      this._svr.removeAllListeners() // Cleanup listeners
+      this._dbModel.closeConnection() // Close DB
     }
   }
 
   /**
-   * Re-starts the listening server.
+   * Re-starts the listening server (do not use it to start the server from scrach).
    */
   restartServer () {
     if (this._svr.listening) { // Only stop server if it's listening
@@ -102,7 +109,9 @@ module.exports = class {
    */
   toggleMaintenaceMode () {
     this._isMaintenance = !this._isMaintenance
-    this._consView.displayMessage(this._isMaintenance ? 'The server is under maintenance mode.' : 'The server resumed from maintenance mode.')
+    this._consView.displayMessage(this._isMaintenance
+      ? 'The server is under maintenance mode.'
+      : 'The server resumed from maintenance mode.')
   }
 
   // After here are the helper methods (considered like private)
@@ -114,7 +123,9 @@ module.exports = class {
    * @param {Function} next the function to continue the chain
    */
   _mixedMid (req, resp, next) {
-    if (req.session.theGithubAccessToken && req.session.theUser) resp.locals.theUser = req.session.theUser // Pass the user to the header
+    if (req.session.theGithubAccessToken && req.session.theUser) { // Pass the user to the page header (only the needed data)
+      resp.locals.theUser = {displayName: req.session.theUser.name, userName: req.session.theUser.login}
+    }
     resp.locals.theNavAnchs = THE_CONF.theNavAnchs // Pass the header links/anchors to the header
     // resp.set('Cache-Control', 'no-cache, private, no-store, must-revalidate, max-stale=0, post-check=0, pre-check=0') // Recommended (not tested)
     this._isMaintenance // Checks if under maintenance

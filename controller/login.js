@@ -1,7 +1,5 @@
-// const THE_HTTPS_PROM = require('../libs/httpsProm')
 const THE_SEC_CONF = require('../config/secConf')
-// const THE_QUERY_S = require('querystring')
-const THE_GIHUB_COMM = require('../view/githubComm')(THE_SEC_CONF.githubAppClientID, THE_SEC_CONF.githubAppClientSecret, THE_SEC_CONF.appName)
+const THE_GIHUB_COMM = require('../view/githubComm')()  // (THE_SEC_CONF.githubAppClientID, THE_SEC_CONF.githubAppClientSecret, THE_SEC_CONF.appName)
 let outRouter = require('express').Router()
 
 outRouter.route('/login') // Github login initiation route (or just logout)
@@ -38,6 +36,9 @@ outRouter.route('/login/back') // Github login continuation route (protected by 
     if (req.session.theLastGithubStateToken && req.session.theLastGithubStateToken === req.query.state) { // If there was a previous state-token and it is equal to the one redirected to us
       THE_GIHUB_COMM.continueLogin(req)
         .then(() => {
+          console.log('vvvvvvvvvvAccTOK')
+          console.log(req.session.theGithubAccessToken)
+          console.log('^^^^^^^^^^')
           req.session.theFlash = {type: 'msg-info', msg: 'Login successful...'}
           resp.redirect('/')
         })
