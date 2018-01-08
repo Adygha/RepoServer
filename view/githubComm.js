@@ -3,16 +3,20 @@
  */
 
 const THE_API = {
-  APP_SCOPE: 'admin:repo_hook', // The permission scope requested from the user (only organization hooks; others are public read)
+  APP_SCOPE: 'repo write:repo_hook', // The permission scope requested from the user (only organization hooks; others are public read)
+  MAIN_APP_ISSUES_URL: 'https://api.github.com/repos/1dv523/ja223gs-examination-3/issues', // The app's issues (for main page)
   OAUTH_URL: 'https://github.com/login/oauth/authorize', // The API URL to initiate create/login an access-token
   ACC_TOK_URL: 'https://github.com/login/oauth/access_token', // The API URL to validate create/login an access-token
   ACC_TOK_CHK_REVOKE_URL: 'https://api.github.com/applications/', // The API URL to check/revoke an access-token
-  USER_URL: 'https://api.github.com/user' // The API URL to get user info (we get other URLs using the API responds)
+  USER_URL: 'https://api.github.com/user', // The API URL to get user info (we get other URLs using the API responds)
+  USER_REPOS: 'https://api.github.com/user/repos' // The API URL to get user repos (this one will get the private also)
 }
 const THE_HTTPS_PROM = require('../libs/httpsProm')
 const THE_QUERY_STR = require('querystring')
 const THE_WEBSK = require('websocket-driver')
-// const THE_CRYPT = require('crypto')
+const THE_COOKIE = require('cookie')
+const THE_COOKIE_SIG = require('cookie-signature')
+const THE_SEC_CONF = require('../config/secConf')
 
 class GithubCommunicator {
   /**
@@ -27,7 +31,7 @@ class GithubCommunicator {
     this._appSecret = githubAppClientSecret
     this._appName = appName
     this._websockPath = websockPath
-    this._webSucks = {} // Will contain the still-connected client websockets (websocket record)
+    this._webSucks = new Map() // Will contain the still-connected client websockets (websocket record)
     this._nextWebSuckID = -1 // To ID the next client websockets if the user is not logged in (minus for not logged-in -anonymous id-)
     this._appAuthHeader = { // The headers used for some API that needs app's authentication
       'User-Agent': this._appName,
@@ -37,59 +41,60 @@ class GithubCommunicator {
 
   /**
    * Checks if the incoming request is upgrading to a websocket protocol, and handles it accordingly.
-   * @param {Request} req the incoming request
-   * @param {Socket} socket the communicating socket
-   * @param {Buffer} body initial websocket body (couldn't find a good documentation about it; it's always initially empty in my case)
+   * @param {Request} websockReq the incoming websocket connection request
+   * @param {Socket} commSocket the communicating socket
+   * @param {Buffer} initBody initial websocket body (couldn't find a good documentation about it; it's always initially empty in my case)
    */
-  handleProbableWebsocket (req, socket, body) {
-    if (req.url === this._websockPath && THE_WEBSK.isWebSocket(req)) {
-      let tmpID = req.session.theUser ? (req.session.theUser.id).toString() : (this._nextWebSuckID--).toString() // Depends if logged-in
-      if (this._webSucks[tmpID]) this._webSucks[tmpID].close() // Just in case it was still open from before (no doubles)
-      this._webSucks[tmpID] = THE_WEBSK.http(req) // keep it in the record
-      this._webSucks[tmpID].io.write(body) // Supposed to put the first data to the communication stream
-      socket.pipe(this._webSucks[tmpID].io).pipe(socket) // Supposed to prepare the back and forth communications
-      // this._webSucks[tmpID].messages.addListener('data', inData => this.emit('data', tmpID, inData)) // Just re-emit for now if needed (may delete)
-      this._webSucks[tmpID].once('close', () => { // Delete on close
-        // this._webSucks[tmpID].messages.removeAllListeners('data')
-        delete this._webSucks[tmpID]
-      })
-      this._webSucks[tmpID].start() // Start websocket communication
+  handleProbableWebsocket (websockReq, commSocket, initBody) {
+    if (websockReq.url === this._websockPath && THE_WEBSK.isWebSocket(websockReq)) {
+      this._extractSession(websockReq)
+        .then(theSession => {
+          let tmpID = theSession && theSession.theUser ? theSession.theUser.id : this._nextWebSuckID-- // Depends on if there is session and if logged-in
+          if (this._webSucks.get(tmpID)) this._webSucks.get(tmpID).close() // Just in case it was still open from before (no doubles)
+          this._webSucks.set(tmpID, THE_WEBSK.http(websockReq)) // keep it in the record (or replace the old closed one)
+          if (tmpID > -1) this._webSucks.get(tmpID).theGithubAccessToken = theSession.theGithubAccessToken // Attach the token to websocket
+          this._webSucks.get(tmpID).io.write(initBody) // Supposed to put the first data to the communication stream
+          commSocket.pipe(this._webSucks.get(tmpID).io).pipe(commSocket) // Supposed to prepare the back and forth communications
+          this._webSucks.get(tmpID).messages.addListener('data', inData => this._websockDataHandler(inData, tmpID)) // When data comes
+          this._webSucks.get(tmpID).once('close', () => { // Delete on close
+            this._webSucks.get(tmpID).messages.removeAllListeners('data')
+            this._webSucks.delete(tmpID)
+          })
+          this._webSucks.get(tmpID).start() // Start websocket communication
+        })
     }
   }
 
   /**
    * Broadcast data to all listening websockets, while exempting an ID if needed
    * @param {any} theData the data to be broadcasted
-   * @param {String} idToExempt an optional integer ID (as a string; it will be converted to
-   *                            string anyway) to be exempt from the broadcast
+   * @param {Number} idToExempt an optional integer ID to be exempt from the broadcast
    */
   websocketBroadcast (theData, idToExempt) {
     let tmpAll
-    if (idToExempt) { // When exempting an ID
-      let tmpExID = typeof idToExempt === 'string' ? idToExempt : idToExempt.toString()
-      tmpAll = Object.assign({}, this._webSucks)
-      delete tmpAll[tmpExID]
-    } else {
+    if (idToExempt && this._webSucks.has(idToExempt)) { // When exempting an existing ID
+      tmpAll = new Map(this._webSucks) // Create a shallow copy
+      tmpAll.delete(idToExempt)
+    } else { // When send to all
       tmpAll = this._webSucks
     }
-    for (let id in tmpAll) tmpAll[id].messages.write(theData)
+    tmpAll.forEach(sock => sock.messages.write(theData)) // Send to all left
   }
 
   /**
    * Send data to specific websocket ID (can be github's user id or the anonymous id)
    * @param {any} theData the data to be send
-   * @param {String} theID the ID of the websocket
+   * @param {Number} theID the ID of the websocket
    */
   websocketSend (theData, theID) {
-    let tmpID = typeof theID === 'string' ? theID : theID.toString()
-    this._webSucks[tmpID].messages.write(theData)
+    this._webSucks.get(theID).messages.write(theData)
   }
 
   /**
    * Closes all connected websockets
    */
   websocketCloseAll () {
-    for (let id in this._webSucks) this._webSucks[id].close() // Deleting will happen at the event listener
+    this._webSucks.forEach(sock => sock.close()) // Deleting will happen at the event listener
   }
 
   /**
@@ -195,10 +200,39 @@ class GithubCommunicator {
   /**
    * Gets the guthub's user data object
    * @param {String} theUserAccToken the user's access-token
-   * @returns {Promise<Object>} the guthub's user data object
+   * @returns {Promise<Buffer>} the guthub's user data buffer
    */
   getUserData (theUserAccToken) {
     return THE_HTTPS_PROM.promGET(THE_API.USER_URL, this._userAuthHeaderFactory(theUserAccToken))
+  }
+
+  /**
+   * Gets the guthub's user repos
+   * @param {String} theUserAccToken the user's access-token
+   * @returns {Promise<Buffer>} the guthub's user data buffer
+   */
+  getUserRepos (theUserAccToken) {
+    return THE_HTTPS_PROM.promGET(THE_API.USER_REPOS, this._userAuthHeaderFactory(theUserAccToken))
+  }
+
+  /**
+   * Extracts the session from the request if any.
+   * @param {Request} websockReq
+   * @returns {Promise<Session>} a promise containing the session or null (will never reject with error).
+   */
+  _extractSession (websockReq) {
+    return new Promise((resolve, reject) => {
+      let tmpCookie = websockReq.headers.cookie ? THE_COOKIE.parse(websockReq.headers.cookie)[THE_SEC_CONF.sessOption.name] : null // Get cookie
+      if (tmpCookie) {
+        tmpCookie = THE_COOKIE_SIG.unsign(tmpCookie.slice(2), THE_SEC_CONF.sessOption.secret) // Unsign the cookie
+        THE_SEC_CONF.sessOption.store.get(tmpCookie, (err, userSession) => {
+          if (err) resolve(null) // No need to reject, only resolve null
+          resolve(userSession)
+        })
+      } else {
+        resolve(null)
+      }
+    })
   }
 
   /**
@@ -209,6 +243,28 @@ class GithubCommunicator {
   _userAuthHeaderFactory (theUserAccToken) {
     return {'User-Agent': this._appName, Authorization: 'token ' + theUserAccToken}
   }
+
+  /**
+   * Handles the 'data' event (dot directly) for the websocket
+   * @param {Object} theData the data to be handled
+   * @param {Number} sockID the ID of the websocket (the ID of the user or the negative key ID)
+   */
+  _websockDataHandler (theData, sockID) {
+    let tmpData = JSON.parse(theData)
+    switch (tmpData.type) {
+      case 'all-user-repos': // When, initially, all user's repos' data is requested
+        if (sockID < 0) { // Can't get repo data without having a logged-in user
+          this.websocketSend(JSON.stringify({type: 'error', message: 'Not logged-in'}), sockID)
+        } else {
+          this.getUserRepos(this._webSucks.get(sockID).theGithubAccessToken)
+            .then(reposBuf => this.websocketSend(JSON.stringify({type: 'all-user-repos', content: JSON.parse(reposBuf.toString())}), sockID)) // Send repos
+            .catch(() => this.websocketSend(JSON.stringify({type: 'error', message: 'Cannot retrieve repos. Re-login if error persists.'}), sockID)) // Send an error message
+        }
+        break
+      case 'main-app-issues': // When visiting the main page and requesting this application's issue data
+        // TODO:
+    }
+  }
 }
 
 let githubComm
@@ -218,8 +274,9 @@ let githubComm
  * @param {String} githubAppClientID the app's github client-ID
  * @param {String} githubAppClientSecret the app's github client-secret
  * @param {String} appName the github's app name to pass as a user-agent (or any other name)
+ * @param {String} websockPath the relative path that the websocket server will listen to
  * @returns {GithubCommunicator} the singleton communicator object
  */
-module.exports = function (githubAppClientID, githubAppClientSecret, appName) {
-  return githubComm || (githubComm = new GithubCommunicator(githubAppClientID, githubAppClientSecret, appName)) // To return a singleton (just in case we use it in different modules)
+module.exports = function (githubAppClientID, githubAppClientSecret, appName, websockPath) {
+  return githubComm || (githubComm = new GithubCommunicator(githubAppClientID, githubAppClientSecret, appName, websockPath)) // To return a singleton (just in case we use it in different modules)
 }

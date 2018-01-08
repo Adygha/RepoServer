@@ -15,7 +15,8 @@ const ConsoleView = require('../view/ConsoleView')
 const DbConn = require('../model/DbConnection')
 const MongoStore = require('connect-mongo')(THE_SESS)
 
-const THE_GIHUB_COMM = require('../view/githubComm')(THE_SEC_CONF.githubAppClientID, THE_SEC_CONF.githubAppClientSecret, THE_SEC_CONF.appName, '/websock')
+const THE_WEBSOCK_PATH = '/websock' // What path that handles websocket communications
+const THE_GIHUB_COMM = require('../view/githubComm')(THE_SEC_CONF.githubAppClientID, THE_SEC_CONF.githubAppClientSecret, THE_SEC_CONF.appName, THE_WEBSOCK_PATH)
 
 module.exports = class {
   constructor () {
@@ -37,7 +38,9 @@ module.exports = class {
       partialsDir: THE_PATH.join(process.cwd(), 'view/partials'), // Needed for changing the 'views' name (or else errors happen).
       defaultLayout: 'main',
       extname: '.hbs',
-      helpers: {toJSON: JSON.stringify} // To pass data to javascript files at the client side
+      helpers: {toJSON: data => {
+        return encodeURIComponent(JSON.stringify(data))
+      }} // To pass data to javascript files at the client side
     }))
     this._svrApp.set('view engine', '.hbs')
     this._svrApp.set('views', THE_PATH.join(process.cwd(), 'view')) // Just changing the 'views' name
@@ -68,6 +71,7 @@ module.exports = class {
     } else if (!this._svr) { // If no listening server yet
       this._svr = this._svrApp.listen(THE_CONF.port, () => this._consView.displayMessage('Server started...'))
       this._svr.addListener('upgrade', THE_GIHUB_COMM.handleProbableWebsocket.bind(THE_GIHUB_COMM))
+      // this._svr.addListener('upgrade', (req, socket, body) => THE_GIHUB_COMM.handleProbableWebsocket(req, socket, body))
     }
     if (this._isMaintenance) this.toggleMaintenaceMode()
   }
@@ -85,6 +89,8 @@ module.exports = class {
       THE_GIHUB_COMM.websocketCloseAll() // Close websockets
       this._svr.removeAllListeners() // Cleanup listeners
       this._dbModel.closeConnection() // Close DB
+
+      THE_GIHUB_COMM.websocketCloseAll()
     }
   }
 
@@ -123,10 +129,15 @@ module.exports = class {
    * @param {Function} next the function to continue the chain
    */
   _mixedMid (req, resp, next) {
-    if (req.session.theGithubAccessToken && req.session.theUser) { // Pass the user to the page header (only the needed data)
-      resp.locals.theUser = {displayName: req.session.theUser.name, userName: req.session.theUser.login}
+    if (req.session.theGithubAccessToken && req.session.theUser) {
+      resp.locals.theUser = { // Pass the user to the view (only the needed data)
+        displayName: req.session.theUser.name,
+        userName: req.session.theUser.login,
+        avatarURL: req.session.theUser.avatar_url,
+        websockPath: THE_WEBSOCK_PATH
+      }
     }
-    resp.locals.theNavAnchs = THE_CONF.theNavAnchs // Pass the header links/anchors to the header
+    resp.locals.theNavAnchs = THE_CONF.theNavAnchs // Pass the header links/anchors to the view
     // resp.set('Cache-Control', 'no-cache, private, no-store, must-revalidate, max-stale=0, post-check=0, pre-check=0') // Recommended (not tested)
     this._isMaintenance // Checks if under maintenance
     ? next(new THE_CUST_ERRS.UnderMaintenanceError('Site is under maintenance. Please visite later.'))

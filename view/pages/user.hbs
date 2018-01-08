@@ -1,3 +1,24 @@
 {{#if theUser}}
+  <link rel="stylesheet" href="/stylesheets/repo.css">
+  <template id="repo-template">
+    <fieldset>
+      <legend></legend>
+      <a href="javascript:" class="repo-refresh">Repo updated.. Click here to refresh it.</a>
+      <div class="repo-info">
+        <label>Repo Description:<input class="repo-description" type="text" disabled></label><br>
+        <label>Repo Homepage:<input class="repo-homepage" type="text" disabled></label><br>
+        <label>Repo Language:<input class="repo-language" type="text" disabled></label><br>
+        <label>Repo License:<input class="repo-license" type="text" disabled></label>
+      </div>
+      <div class="repo-issues"></div>
+    </fieldset>
+  </template>
+  <template id="repo-issue-template">
+    <div class="repo-issue"></div>
+  </template>
+  <img src="{{theUser.avatarURL}}" id="github-avatar" alt="github-avatar" width="50" height="50">
+  <h1>Your Repositories:</h1>
+  <div id="repos-container"></div>
+  <input id="the-hidden" type="hidden" value={{{toJSON theUser}}}>
   <script src="/javascript/repos.js"></script>
 {{/if}}

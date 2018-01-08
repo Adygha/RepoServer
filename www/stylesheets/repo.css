@@ -1,0 +1,39 @@
+fieldset {
+  position: relative;
+  z-index: 1;
+  background: white;
+  margin: 20px auto;
+  padding: 10px 20px 20px;
+  box-shadow: 0 0 20px 0 rgba(0, 0, 0, 0.2), 0 5px 5px 0 rgba(0, 0, 0, 0.24);
+  border-style: outset;
+}
+
+fieldset legend {
+  border-style: outset;
+  background-color: white;
+  padding: 6px;
+  box-shadow: 0 0 20px 0 rgba(0, 0, 0, 0.2), 0 5px 5px 0 rgba(0, 0, 0, 0.24);
+  /* user-select: none; */
+}
+
+fieldset input[type='text'] {
+  padding: 6px;
+  margin-bottom: 5px;
+}
+
+fieldset .repo-refresh {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  background-color: orange;
+  padding: 2px;
+  /* visibility: hidden; */
+}
+
+fieldset .repo-refresh:hover {
+  background-color: orangered;
+}
+
+/* fieldset label {
+  border-style: solid;
+} */
