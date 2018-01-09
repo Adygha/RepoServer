@@ -3,20 +3,33 @@
   <template id="repo-template">
     <fieldset>
       <legend></legend>
-      <a href="javascript:" class="repo-refresh">Repo updated.. Click here to refresh it.</a>
+      <a href="javascript:" class="repo-message-anchor">Repo updated.. Click here to refresh it.</a>
+      <label><input type="checkbox" class="repo-webhook-choose" checked> Get notified when this repos changes <span class="repo-little-msg"></span></label><br><br>
       <div class="repo-info">
-        <label>Repo Description:<input class="repo-description" type="text" disabled></label><br>
-        <label>Repo Homepage:<input class="repo-homepage" type="text" disabled></label><br>
-        <label>Repo Language:<input class="repo-language" type="text" disabled></label><br>
+        <label>Repo Description:<input class="repo-description" type="text" disabled></label>
+        <label>Repo Homepage:<input class="repo-homepage" type="text" disabled></label>
+        <label>Repo Language:<input class="repo-language" type="text" disabled></label>
         <label>Repo License:<input class="repo-license" type="text" disabled></label>
       </div>
-      <div class="repo-issues"></div>
+      <br><label>Repo Issues:<div class="repo-issues-container"></div></label>
     </fieldset>
   </template>
   <template id="repo-issue-template">
-    <div class="repo-issue"></div>
+    <fieldset class="repo-issue">
+      <legend></legend>
+      <label>Github user who started the issue:<input class="repo-issuer" type="text" disabled></label>
+      <label>Issue status:<input class="repo-issue-status" type="text" disabled></label>
+      <label>Issue Body:<textarea class="repo-issue-body" disabled></textarea></label>
+      <div class="repo-issue-comments-container"></div>
+    </fieldset>
   </template>
-  <img src="{{theUser.avatarURL}}" id="github-avatar" alt="github-avatar" width="50" height="50">
+  <template id="repo-issue-comment-template">
+    <fieldset class="repo-issue-comment">
+      <label>User [<span class="repo-issue-commenter"></span>] commented on issue with:<textarea class="repo-issue-comment-body" disabled></textarea></label>
+    </fieldset>
+  </template>
+  <img src="{{theUser.avatarURL}}" alt="github-avatar" width="50" height="50">
+  Welcome {{#if theUser.displayName}}{{theUser.displayName}}{{else}}{{theUser.userName}}{{/if}} to your page.
   <h1>Your Repositories:</h1>
   <div id="repos-container"></div>
   <input id="the-hidden" type="hidden" value={{{toJSON theUser}}}>

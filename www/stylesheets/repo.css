@@ -11,7 +11,7 @@ fieldset {
 fieldset legend {
   border-style: outset;
   background-color: white;
-  padding: 6px;
+  padding: 6px 10px;
   box-shadow: 0 0 20px 0 rgba(0, 0, 0, 0.2), 0 5px 5px 0 rgba(0, 0, 0, 0.24);
   /* user-select: none; */
 }
@@ -21,7 +21,7 @@ fieldset input[type='text'] {
   margin-bottom: 5px;
 }
 
-fieldset .repo-refresh {
+fieldset .repo-message-anchor {
   display: block;
   text-align: center;
   text-decoration: none;
@@ -30,10 +30,32 @@ fieldset .repo-refresh {
   /* visibility: hidden; */
 }
 
-fieldset .repo-refresh:hover {
+fieldset .repo-message-anchor:hover {
   background-color: orangered;
 }
 
-/* fieldset label {
-  border-style: solid;
-} */
+.repo-issue {
+  margin: 2px;
+}
+
+.repo-issue-comment {
+  margin-left: 20px;
+}
+
+.repo-msg-info {
+  padding: 2px 4px;
+  border-radius: 2px;
+  animation: hide-it 0.5s 1;
+  animation-delay: 4s;
+  animation-fill-mode: forwards;
+  background-color: skyblue;
+}
+
+@keyframes hide-it {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}

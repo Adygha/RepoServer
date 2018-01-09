@@ -9,7 +9,7 @@ const THE_API = {
   ACC_TOK_URL: 'https://github.com/login/oauth/access_token', // The API URL to validate create/login an access-token
   ACC_TOK_CHK_REVOKE_URL: 'https://api.github.com/applications/', // The API URL to check/revoke an access-token
   USER_URL: 'https://api.github.com/user', // The API URL to get user info (we get other URLs using the API responds)
-  USER_REPOS: 'https://api.github.com/user/repos' // The API URL to get user repos (this one will get the private also)
+  USER_REPOS_URL: 'https://api.github.com/user/repos' // The API URL to get user repos (this one will get the private also)
 }
 const THE_HTTPS_PROM = require('../libs/httpsProm')
 const THE_QUERY_STR = require('querystring')
@@ -50,16 +50,21 @@ class GithubCommunicator {
       this._extractSession(websockReq)
         .then(theSession => {
           let tmpID = theSession && theSession.theUser ? theSession.theUser.id : this._nextWebSuckID-- // Depends on if there is session and if logged-in
-          if (this._webSucks.get(tmpID)) this._webSucks.get(tmpID).close() // Just in case it was still open from before (no doubles)
+          if (this._webSucks.has(tmpID)) { // If there is a previous websocket with same ID then close it (just in case it was still open from before -no doubles-)
+            this._webSucks.get(tmpID).messages.removeAllListeners('data')
+            this._webSucks.get(tmpID).close()
+            this._webSucks.delete(tmpID)
+          }
+          // if (this._webSucks.has(tmpID)) return // If same user connected twice, refuse the second attempt
           this._webSucks.set(tmpID, THE_WEBSK.http(websockReq)) // keep it in the record (or replace the old closed one)
           if (tmpID > -1) this._webSucks.get(tmpID).theGithubAccessToken = theSession.theGithubAccessToken // Attach the token to websocket
           this._webSucks.get(tmpID).io.write(initBody) // Supposed to put the first data to the communication stream
           commSocket.pipe(this._webSucks.get(tmpID).io).pipe(commSocket) // Supposed to prepare the back and forth communications
           this._webSucks.get(tmpID).messages.addListener('data', inData => this._websockDataHandler(inData, tmpID)) // When data comes
-          this._webSucks.get(tmpID).once('close', () => { // Delete on close
-            this._webSucks.get(tmpID).messages.removeAllListeners('data')
-            this._webSucks.delete(tmpID)
-          })
+          // this._webSucks.get(tmpID).once('close', () => { // Delete on close
+          //   this._webSucks.get(tmpID).messages.removeAllListeners('data')
+          //   this._webSucks.delete(tmpID)
+          // })
           this._webSucks.get(tmpID).start() // Start websocket communication
         })
     }
@@ -94,7 +99,11 @@ class GithubCommunicator {
    * Closes all connected websockets
    */
   websocketCloseAll () {
-    this._webSucks.forEach(sock => sock.close()) // Deleting will happen at the event listener
+    this._webSucks.forEach((sock, sockID) => {
+      sock.messages.removeAllListeners('data')
+      sock.close()
+      this._webSucks.delete(sockID)
+    })
   }
 
   /**
@@ -207,12 +216,39 @@ class GithubCommunicator {
   }
 
   /**
+   * Gets the the main app's repo issues (to display on main page)
+   */
+  getMainAppRepoIssues () {
+    return THE_HTTPS_PROM.promGET(THE_API.MAIN_APP_ISSUES_URL, this._userAuthHeaderFactory(THE_SEC_CONF.githubAppExamRepoToken))
+  }
+
+  /**
    * Gets the guthub's user repos
    * @param {String} theUserAccToken the user's access-token
-   * @returns {Promise<Buffer>} the guthub's user data buffer
+   * @returns {Promise<Buffer>} the guthub's repos' data buffer
    */
   getUserRepos (theUserAccToken) {
-    return THE_HTTPS_PROM.promGET(THE_API.USER_REPOS, this._userAuthHeaderFactory(theUserAccToken))
+    return THE_HTTPS_PROM.promGET(THE_API.USER_REPOS_URL, this._userAuthHeaderFactory(theUserAccToken))
+  }
+
+  /**
+   * Gets the guthub's user repo issues
+   * @param {String} issuesURL the URL for the issues (got from the repo object)
+   * @param {String} theUserAccToken the user's access-token
+   * @returns {Promise<Buffer>} the guthub's issues' data buffer
+   */
+  getUserRepoIssues (issuesURL, theUserAccToken) {
+    return THE_HTTPS_PROM.promGET(issuesURL, this._userAuthHeaderFactory(theUserAccToken))
+  }
+
+  /**
+   * Gets the guthub's issues comment
+   * @param {String} commentURL the URL for the comment (got from the issue object)
+   * @param {String} theUserAccToken the user's access-token
+   * @returns {Promise<Buffer>} the guthub's comments' data buffer
+   */
+  getUserRepoIssueComments (commentURL, theUserAccToken) {
+    return THE_HTTPS_PROM.promGET(commentURL, this._userAuthHeaderFactory(theUserAccToken))
   }
 
   /**
@@ -256,13 +292,54 @@ class GithubCommunicator {
         if (sockID < 0) { // Can't get repo data without having a logged-in user
           this.websocketSend(JSON.stringify({type: 'error', message: 'Not logged-in'}), sockID)
         } else {
+          let tmpRepos
           this.getUserRepos(this._webSucks.get(sockID).theGithubAccessToken)
-            .then(reposBuf => this.websocketSend(JSON.stringify({type: 'all-user-repos', content: JSON.parse(reposBuf.toString())}), sockID)) // Send repos
+            // .then(reposBuf => this.websocketSend(JSON.stringify({type: 'all-user-repos', content: JSON.parse(reposBuf.toString())}), sockID)) // Send repos
+            .then(reposBuf => { // Now the repos are fetched
+              tmpRepos = JSON.parse(reposBuf.toString())
+              let tmpPromises = [] // An array of promises to resolve all
+              tmpRepos.forEach(repo => { // Get the repo issues for every repo
+                if (repo.has_issues) {
+                  let tmpIndx = repo.issues_url.indexOf('{')
+                  if (tmpIndx < 0) tmpIndx = repo.issues_url.length // Just in case there is no '{' in the URL
+                  let tmpIssues = this.getUserRepoIssues(repo.issues_url.substring(0, tmpIndx), this._webSucks.get(sockID).theGithubAccessToken)
+                    .then(issuesBuf => (repo.theIssues = JSON.parse(issuesBuf.toString()))) // Assign the issues to their repo
+                  tmpPromises.push(tmpIssues)
+                }
+              })
+              return Promise.all(tmpPromises)
+            })
+            .then(() => { // Now the issues are fetched (no need to specify them, they are alredy assigned to repos)
+              let tmpPromises = [] // An array of promises to resolve all
+              tmpRepos.forEach(repo => {
+                if (repo.has_issues) {
+                  repo.theIssues.forEach(issue => {
+                    if (issue.comments > 0) {
+                      let tmpComms = this.getUserRepoIssueComments(issue.comments_url, this._webSucks.get(sockID).theGithubAccessToken)
+                        .then(commsBuf => (issue.theComments = JSON.parse(commsBuf.toString()))) // Assign the comments to their issue
+                      tmpPromises.push(tmpComms)
+                    }
+                  })
+                }
+              })
+              return Promise.all(tmpPromises)
+            })
+            .then(commsArr => this.websocketSend(JSON.stringify({type: 'all-user-repos', content: tmpRepos}), sockID)) // Now the comments are fetched (no need to specify them, they are alredy assigned to issues) and we send repos
             .catch(() => this.websocketSend(JSON.stringify({type: 'error', message: 'Cannot retrieve repos. Re-login if error persists.'}), sockID)) // Send an error message
         }
         break
       case 'main-app-issues': // When visiting the main page and requesting this application's issue data
+        this.getMainAppRepoIssues()
+          .then(issuesBuf => this.websocketSend(JSON.stringify({type: 'main-app-issues', content: JSON.parse(issuesBuf.toString())}), sockID)) // Send issues
+          .catch(() => this.websocketSend(JSON.stringify({type: 'error', message: 'Cannot retrieve issues. Please try again later.'}), sockID)) // Send an error message
+        break
+      case 'repo-webhook-enable': // Webhook enable requested
         // TODO:
+        this.websocketSend(JSON.stringify({type: 'repo-webhook-enabled', content: tmpData.content}), sockID)
+        break
+      case 'repo-webhook-disable': // Webhook disable requested
+        // TODO:
+        this.websocketSend(JSON.stringify({type: 'repo-webhook-disabled', content: tmpData.content}), sockID)
     }
   }
 }

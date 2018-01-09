@@ -84,6 +84,7 @@
 }
 
 .nav-container label:focus-within .nav-strips {
+  width: 75%;
   transform: rotate(90deg);
 }
 
@@ -93,25 +94,33 @@
 }
 
 .nav-container label:focus-within .nav-strips:before {
-  top: 200%;
-  transform: rotate(-20deg);
+  top: 180%;
+  left: 30%;
+  width: 70%;
+  transform: rotate(-30deg);
 }
 
 /* This block is for the damn Edge */
 .nav-but:focus ~ .nav-strips:before {
-  top: 200%;
-  transform: rotate(-20deg);
+  top: 180%;
+  left: 30%;
+  width: 70%;
+  transform: rotate(-30deg);
 }
 
 .nav-container label:focus-within .nav-strips:after {
-  top: -200%;
-  transform: rotate(20deg);
+  top: -180%;
+  left: 30%;
+  width: 70%;
+  transform: rotate(30deg);
 }
 
 /* This block is for the damn Edge */
 .nav-but:focus ~ .nav-strips:after {
-  top: -200%;
-  transform: rotate(20deg);
+  top: -180%;
+  left: 30%;
+  width: 70%;
+  transform: rotate(30deg);
 }
 
 .nav-menu {
