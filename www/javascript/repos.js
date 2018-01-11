@@ -183,6 +183,7 @@ class RepoBuilder {
         }
         tmpRefAnch.addEventListener('click', removableHandler)
         tmpRefAnch.style.visibility = 'visible'
+        tmpRefAnch.parentElement.scrollIntoView(true)
         break
       case 'user-repo-updated':
         let tmpUpdatedRepo = this._repoFactory(tmpData.content)
@@ -196,7 +197,7 @@ class RepoBuilder {
         this._displayMessage(tmpData.message, true)
         break
       case 'ping': // Nothing for now
-        console.log('ping')
+        // console.log('ping')
     }
   }
 
