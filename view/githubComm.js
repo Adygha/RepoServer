@@ -21,6 +21,7 @@ const THE_WEBSK = require('websocket-driver')
 const THE_COOKIE = require('cookie')
 const THE_COOKIE_SIG = require('cookie-signature')
 const THE_SEC_CONF = require('../config/secConf')
+const THE_TIMER = require('timers')
 
 class GithubCommunicator {
   /**
@@ -44,6 +45,7 @@ class GithubCommunicator {
     this.manageRepoWebhook(THE_API.MAIN_APP_HOOKS_URL, THE_SEC_CONF.githubAppExamRepoToken, false, true)
       .then(webhookBuf => (this._appWebHook = JSON.parse(webhookBuf.toString())))
       .catch(() => (this._canUseMainWebHook = false))
+    this._intervalHandle = THE_TIMER.setInterval(() => this.websocketBroadcast(JSON.stringify({type: 'ping'})), 20000) // Sometimes the client websocket behaves abnormally, this helps
   }
 
   /**
@@ -105,7 +107,8 @@ class GithubCommunicator {
    * Closes all connected websockets
    */
   websocketCloseAll () {
-    if (this._appWebHook) this.manageRepoWebhook(this._appWebHook.url, THE_SEC_CONF.githubAppExamRepoToken, false, false) // delete the app's webhook
+    if (this._appWebHook) this.manageRepoWebhook(this._appWebHook.url, THE_SEC_CONF.githubAppExamRepoToken, false, false) // delete the main app's webhook
+    THE_TIMER.clearInterval(this._intervalHandle)
     this._webSucks.forEach((sock, sockID) => {
       sock.messages.removeAllListeners('data')
       sock.close()

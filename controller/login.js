@@ -40,9 +40,9 @@ outRouter.route('/login/back') // Github login continuation route (protected by 
     if (req.session.theLastGithubStateToken && req.session.theLastGithubStateToken === req.query.state) { // If there was a previous state-token and it is equal to the one redirected to us
       THE_GIHUB_COMM.continueLogin(req)
         .then(() => {
-          console.log('vvvvvvvvvvAccTOK')
-          console.log(req.session.theGithubAccessToken)
-          console.log('^^^^^^^^^^')
+          // console.log('vvvvvvvvvvAccTOK')
+          // console.log(req.session.theGithubAccessToken)
+          // console.log('^^^^^^^^^^')
           req.session.theFlash = {type: 'msg-info', msg: 'Login successful...'}
           resp.redirect('/')
         })

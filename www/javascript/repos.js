@@ -194,6 +194,9 @@ class RepoBuilder {
         break
       case 'error': // In case an error
         this._displayMessage(tmpData.message, true)
+        break
+      case 'ping': // Nothing for now
+        console.log('ping')
     }
   }
 

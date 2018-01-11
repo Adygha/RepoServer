@@ -16,10 +16,6 @@ outRouter.route('/webhook')
     let tmpSecHeader = req.header('x-hub-signature').split('=')
     let tmpAppToChk = THE_CRYPT.createHmac(tmpSecHeader[0], THE_SEC_CONF.githubAppWebHookSecret).update(JSON.stringify(req.body)).digest('hex')
     let tmpUserToChk = THE_CRYPT.createHmac(tmpSecHeader[0], THE_SEC_CONF.githubUserWebHookSecret).update(JSON.stringify(req.body)).digest('hex')
-    console.log('vvvvvvvvvvvvv')
-    console.log(req.body)
-    console.log(req.headers)
-    console.log('^^^^^^^^^^^^^')
     if (req.header('x-github-event') === 'ping' && (tmpSecHeader[1] === tmpAppToChk || tmpSecHeader[1] === tmpUserToChk)) {
       resp.sendStatus(200) // Just send an ok on ping
     } else if (tmpSecHeader[1] === tmpAppToChk) {
