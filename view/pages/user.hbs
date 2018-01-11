@@ -1,10 +1,10 @@
 {{#if theUser}}
-  <link rel="stylesheet" href="/stylesheets/repo.css">
+  {{!-- <link rel="stylesheet" href="/stylesheets/repo.css"> --}}
   <template id="repo-template">
     <fieldset>
       <legend></legend>
       <a href="javascript:" class="repo-message-anchor">Repo updated.. Click here to refresh it.</a>
-      <label><input type="checkbox" class="repo-webhook-choose" checked> Get notified when this repos changes <span class="repo-little-msg"></span></label><br><br>
+      <label><input type="checkbox" class="repo-webhook-choose" checked> Get notified when this repos changes <span class="repo-webhook-choose-msg-container"></span></label><br><br>
       <div class="repo-info">
         <label>Repo Description:<input class="repo-description" type="text" disabled></label>
         <label>Repo Homepage:<input class="repo-homepage" type="text" disabled></label>
@@ -32,6 +32,6 @@
   Welcome {{#if theUser.displayName}}{{theUser.displayName}}{{else}}{{theUser.userName}}{{/if}} to your page.
   <h1>Your Repositories:</h1>
   <div id="repos-container"></div>
-  <input id="the-hidden" type="hidden" value={{{toJSON theUser}}}>
+  <input id="the-hidden" type="hidden" value="{{websockPath}}">
   <script src="/javascript/repos.js"></script>
 {{/if}}

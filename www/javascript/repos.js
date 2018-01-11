@@ -1,14 +1,14 @@
 class RepoBuilder {
   /**
    * Default constructor.
-   * @param {Object} theUser the User object that contains the user info
+   * @param {String} websockPath the websocker relative path
    */
-  constructor (theUser) {
-    this._user = theUser
+  constructor (websockPath) {
     this._templates = new Map() // to store extracted html templates
-    let tmpURL = new window.URL(theUser.websockPath, window.location.origin)
+    this._repos = new Map() // to store fetched repos
+    let tmpURL = new window.URL(websockPath, window.location.origin) // The full URL
     tmpURL.protocol = 'wss:'
-    this._sock = new WebSocket(tmpURL.href) // TODO: check if posrt is included
+    this._sock = new window.WebSocket(tmpURL.href)
     this._sock.addEventListener('message', this._msgReceivedHandler.bind(this))
   }
 
@@ -16,6 +16,7 @@ class RepoBuilder {
    * Requests the initiation of the main page and fill it with this application's issue data.
    */
   initiateMainPage () {
+    this._isMainPage = true
     if (this._sock.readyState === window.WebSocket.OPEN) { // If the websocket connection is open
       this._websocketSend('main-app-issues', '')
     } else { // If the websocket connection is still not open (it is normal, since this is called when the page is just open)
@@ -27,6 +28,7 @@ class RepoBuilder {
    * Requests the initiation of the user's page and fill it with user's repos' data.
    */
   initiateUserPage () {
+    this._isMainPage = false
     if (this._sock.readyState === window.WebSocket.OPEN) { // If the websocket connection is open
       this._websocketSend('all-user-repos', '')
     } else { // If the websocket connection is still not open (it is normal, since this is called when the page is just open)
@@ -40,7 +42,10 @@ class RepoBuilder {
    */
   closeConnection () {
     if (this._sock && this._sock.readyState !== window.WebSocket.CLOSED) {
-      this._sock.close(1000, 'Closing normally on request.')
+      this._repos.forEach((repo, id) => {
+        if (repo.theWebHook) this._websocketSend('repo-webhook-disable', {id, hooksURL: repo.theWebHook.url, needResponse: false})
+      })
+      this._sock.close(1000, 'Closing normally on request.') // Just following documentations for normal behaviour
     }
   }
 
@@ -73,9 +78,14 @@ class RepoBuilder {
     let outRepo = this._extractTemplateContent('repo-template').querySelector('fieldset')
     outRepo.id = 'id' + repoObj.id // Damn it.. I can't use ID with first as digit in CSS3, took me some time..
     outRepo.querySelector('.repo-webhook-choose').addEventListener('change', ev => { // Webhook status change requested
-      let tmpMsg = outRepo.querySelector('.repo-little-msg')
+      let tmpMsg = outRepo.querySelector('.repo-webhook-choose-msg-container')
       if (tmpMsg.firstElementChild) tmpMsg.removeChild(tmpMsg.firstElementChild)
-      this._websocketSend(ev.target.checked ? 'repo-webhook-enable' : 'repo-webhook-disable', outRepo.id.substring(2))
+      this._websocketSend(ev.target.checked ? 'repo-webhook-enable' : 'repo-webhook-disable', {
+        // id: outRepo.id.substring(2),
+        id: repoObj.id,
+        hooksURL: ev.target.checked ? repoObj.hooks_url : repoObj.theWebHook.url, // Send the url depending on checked
+        needResponse: true
+      })
     })
     outRepo.querySelector('legend').textContent = repoObj.name                                //
     outRepo.querySelector('.repo-description').value = repoObj.description                    //
@@ -122,35 +132,95 @@ class RepoBuilder {
     switch (tmpData.type) {
       case 'all-user-repos': // When, initially, all user's repos' data is requested
         let tmpRepoContainer = document.getElementById('repos-container')
-        tmpData.content.forEach(repo => tmpRepoContainer.appendChild(this._repoFactory(repo))) // Add the repo representations
+        if (tmpData.content.length > 0) {
+          tmpData.content.forEach(repo => { // Add the repo representations
+            this._repos.set(repo.id, repo)
+            tmpRepoContainer.appendChild(this._repoFactory(repo))
+          })
+        } else {
+          tmpRepoContainer.textContent = 'No repos to show.'
+        }
         break
       case 'main-app-issues': // When visiting the main page and requesting this application's issue data
+        let tmpIssuesContainer = document.getElementById('issues-container')
+        if (tmpData.content.length > 0) {
+          tmpData.content.forEach(issue => tmpIssuesContainer.appendChild(this._issueFactory(issue)))
+        } else {
+          tmpIssuesContainer.textContent = 'No issues to show.'
+        }
         break
       case 'repo-webhook-enabled':
         let tmpMsgEn = document.createElement('span')
         tmpMsgEn.textContent = 'Webhook status enabled'
         tmpMsgEn.classList.add('repo-msg-info')
-        document.querySelector('#id' + tmpData.content + ' .repo-little-msg').appendChild(tmpMsgEn)
+        this._repos.get(tmpData.content.id).theWebHook = tmpData.content.theWebHook
+        document.querySelector('#id' + tmpData.content.id + ' .repo-webhook-choose-msg-container').appendChild(tmpMsgEn)
         break
       case 'repo-webhook-disabled':
         let tmpMsgDis = document.createElement('span')
         tmpMsgDis.textContent = 'Webhook status disabled'
         tmpMsgDis.classList.add('repo-msg-info')
-        document.querySelector('#id' + tmpData.content + ' .repo-little-msg').appendChild(tmpMsgDis)
+        delete this._repos.get(tmpData.content.id).theWebHook // Remove the webhook from repo
+        document.querySelector('#id' + tmpData.content.id + ' .repo-webhook-choose-msg-container').appendChild(tmpMsgDis)
         break
-      case 'error': // In case an error (TODO: may delete)
+      case 'main-app-event': // When main app repo event recieved
+        this._displayMessage(
+          'An event recieved that ' + tmpData.content.event + ' was/were ' + tmpData.content.body.action + '. Please ' +
+          (this._isMainPage ? 'refresh this page if it doesn\'t auto-refresh.' : 'visit main page to get the updates.')
+        )
+        break
+      case 'user-repos-event': // When user repo event recieved
+        this._displayMessage(
+          'An event ' + tmpData.content.event + ' was recieved that the repo ' + tmpData.content.body.repository.name +
+          ' was changed. Please refresh the repo if it doesn\'t auto-refresh.'
+        )
+        let tmpRefAnch = document.body.querySelector('#id' + tmpData.content.body.repository.id + ' .repo-message-anchor')
+        let removableHandler = (ev) => {
+          tmpRefAnch.removeEventListener('click', removableHandler) // Only once
+          ev.preventDefault()
+          tmpRefAnch.style.visibility = 'hidden'
+          this._websocketSend('user-repo-update', {repoURL: tmpData.content.body.repository.url})
+        }
+        tmpRefAnch.addEventListener('click', removableHandler)
+        tmpRefAnch.style.visibility = 'visible'
+        break
+      case 'user-repo-updated':
+        let tmpUpdatedRepo = this._repoFactory(tmpData.content)
+        // this._repos.set(tmpData.content.id, tmpData.content)
+        if (this._repos.get(tmpData.content.id).theWebHook) {
+          tmpData.content.theWebHook = this._repos.get(tmpData.content.id).theWebHook // Assign the webhook (if any) to new object
+        }
+        document.getElementById('repos-container').replaceChild(tmpUpdatedRepo, document.getElementById('id' + tmpData.content.id)) // Replace old one
+        break
+      case 'error': // In case an error
+        this._displayMessage(tmpData.message, true)
     }
+  }
+
+  /**
+   * Displays a temporary message to the user.
+   * @param {String} theMsg the message to display
+   * @param {Boolean} isError true to display as error message
+   */
+  _displayMessage (theMsg, isError) {
+    // window.scrollTo(0, 0)
+    let tmpHeader = document.body.querySelector('header')
+    let tmpMsg = tmpHeader.querySelector('[class^="msg-"]')
+    if (tmpMsg) tmpHeader.removeChild(tmpMsg) // Delete old one
+    tmpMsg = document.createElement('div')
+    tmpMsg.classList.add(isError ? 'msg-err' : 'msg-info')
+    tmpMsg.textContent = theMsg
+    tmpHeader.insertBefore(tmpMsg, tmpHeader.firstChild)
   }
 }
 
 startUp()
 
 function startUp () {
-  let tmpUser = JSON.parse(decodeURIComponent(document.getElementById('the-hidden').value)) // There is another way to do this, but it violate the standard
-  // if (tmpUser) window.alert(tmpUser.displayName || tmpUser.userName)
-  let tmpRepo = new RepoBuilder(tmpUser)
-  document.addEventListener('beforeunload', function removableHandler (ev) { // The websocket is normally closed when the page closes or the page is left, but just in case it didn't
-    document.removeEventListener('beforeunload', removableHandler) // Only one time
+  let tmpWsPath = document.getElementById('the-hidden').value.trim() // There is another way to do this, but it violate the standard
+  let tmpRepo = new RepoBuilder(tmpWsPath)
+  window.addEventListener('beforeunload', function removableHandler (ev) { // The websocket is normally closed when the page closes or the page is left, but just in case it didn't
+    // window.removeEventListener('beforeunload', removableHandler) // Only one time (maybe needed)
     tmpRepo.closeConnection()
   })
   if (document.location.pathname === '/') { // Choose home or user page

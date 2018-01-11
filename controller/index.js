@@ -1,3 +1,7 @@
+/**
+ * Handles the root route.
+ */
+
 let outRouter = require('express').Router()
 
 outRouter.route('/')

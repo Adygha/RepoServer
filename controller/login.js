@@ -1,3 +1,7 @@
+/**
+ * Handles the '/login' route.
+ */
+
 const THE_SEC_CONF = require('../config/secConf')
 const THE_GIHUB_COMM = require('../view/githubComm')()  // (THE_SEC_CONF.githubAppClientID, THE_SEC_CONF.githubAppClientSecret, THE_SEC_CONF.appName)
 let outRouter = require('express').Router()

@@ -27,7 +27,8 @@ fieldset .repo-message-anchor {
   text-decoration: none;
   background-color: orange;
   padding: 2px;
-  /* visibility: hidden; */
+  visibility: hidden;
+  /* display: none; */
 }
 
 fieldset .repo-message-anchor:hover {

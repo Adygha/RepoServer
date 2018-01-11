@@ -44,7 +44,7 @@ module.exports = class {
     }))
     this._svrApp.set('view engine', '.hbs')
     this._svrApp.set('views', THE_PATH.join(process.cwd(), 'view')) // Just changing the 'views' name
-    // this._svrApp.use(THE_PARSE.json()) // If needed later
+    this._svrApp.use(THE_PARSE.json()) // If needed later
     this._svrApp.use(THE_PARSE.urlencoded({extended: true}))
     THE_SEC_CONF.sessOption.store = new MongoStore({mongooseConnection: this._dbModel.getConnection(), collection: 'assign3sess'}) // Add connect-mongo to options
     this._svrApp.use(THE_SESS(THE_SEC_CONF.sessOption))
@@ -55,6 +55,7 @@ module.exports = class {
     this._svrApp.use('/', require('./index'))
     this._svrApp.use('/', require('./login'))
     this._svrApp.use('/', require('./user'))
+    this._svrApp.use('/', require('./webhook'))
 
     this._svrApp.use((req, resp, next) => resp.status(404).render('error/404'))
     this._svrApp.use(this._errorHandler.bind(this)) // To maybe filter the errors later
@@ -71,7 +72,6 @@ module.exports = class {
     } else if (!this._svr) { // If no listening server yet
       this._svr = this._svrApp.listen(THE_CONF.port, () => this._consView.displayMessage('Server started...'))
       this._svr.addListener('upgrade', THE_GIHUB_COMM.handleProbableWebsocket.bind(THE_GIHUB_COMM))
-      // this._svr.addListener('upgrade', (req, socket, body) => THE_GIHUB_COMM.handleProbableWebsocket(req, socket, body))
     }
     if (this._isMaintenance) this.toggleMaintenaceMode()
   }
@@ -89,8 +89,6 @@ module.exports = class {
       THE_GIHUB_COMM.websocketCloseAll() // Close websockets
       this._svr.removeAllListeners() // Cleanup listeners
       this._dbModel.closeConnection() // Close DB
-
-      THE_GIHUB_COMM.websocketCloseAll()
     }
   }
 
@@ -133,10 +131,10 @@ module.exports = class {
       resp.locals.theUser = { // Pass the user to the view (only the needed data)
         displayName: req.session.theUser.name,
         userName: req.session.theUser.login,
-        avatarURL: req.session.theUser.avatar_url,
-        websockPath: THE_WEBSOCK_PATH
+        avatarURL: req.session.theUser.avatar_url
       }
     }
+    resp.locals.websockPath = THE_WEBSOCK_PATH
     resp.locals.theNavAnchs = THE_CONF.theNavAnchs // Pass the header links/anchors to the view
     // resp.set('Cache-Control', 'no-cache, private, no-store, must-revalidate, max-stale=0, post-check=0, pre-check=0') // Recommended (not tested)
     this._isMaintenance // Checks if under maintenance

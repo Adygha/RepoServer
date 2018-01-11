@@ -1,3 +1,7 @@
+/**
+ * Handles the '/user' route.
+ */
+
 let outRouter = require('express').Router()
 
 outRouter.route('/user')
