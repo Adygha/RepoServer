@@ -80,12 +80,18 @@ class RepoBuilder {
     outRepo.querySelector('.repo-webhook-choose').addEventListener('change', ev => { // Webhook status change requested
       let tmpMsg = outRepo.querySelector('.repo-webhook-choose-msg-container')
       if (tmpMsg.firstElementChild) tmpMsg.removeChild(tmpMsg.firstElementChild)
-      this._websocketSend(ev.target.checked ? 'repo-webhook-enable' : 'repo-webhook-disable', {
-        // id: outRepo.id.substring(2),
-        id: repoObj.id,
-        hooksURL: ev.target.checked ? repoObj.hooks_url : repoObj.theWebHook.url, // Send the url depending on checked
-        needResponse: true
-      })
+      if (ev.target.checked || (!ev.target.checked && repoObj.theWebHook)) { // If able to change repo webhook
+        this._websocketSend(ev.target.checked ? 'repo-webhook-enable' : 'repo-webhook-disable', {
+          id: repoObj.id,
+          hooksURL: ev.target.checked ? repoObj.hooks_url : repoObj.theWebHook.url, // Send the url depending on checked
+          needResponse: true
+        })
+      } else {
+        let tmpMsgCont = document.createElement('span')
+        tmpMsgCont.textContent = 'A webhook for this repo cannot be created/deleted'
+        tmpMsgCont.classList.add('repo-msg-info')
+        tmpMsg.appendChild(tmpMsgCont)
+      }
     })
     outRepo.querySelector('legend').textContent = repoObj.name                                //
     outRepo.querySelector('.repo-description').value = repoObj.description                    //
