@@ -76,8 +76,10 @@ class RepoBuilder {
    */
   _repoFactory (repoObj) {
     let outRepo = this._extractTemplateContent('repo-template').querySelector('fieldset')
+    let tmpSelect = outRepo.querySelector('.repo-webhook-choose')
+    tmpSelect.checked = !!repoObj.theWebHook
     outRepo.id = 'id' + repoObj.id // Damn it.. I can't use ID with first as digit in CSS3, took me some time..
-    outRepo.querySelector('.repo-webhook-choose').addEventListener('change', ev => { // Webhook status change requested
+    tmpSelect.addEventListener('change', ev => { // Webhook status change requested
       let tmpMsg = outRepo.querySelector('.repo-webhook-choose-msg-container')
       if (tmpMsg.firstElementChild) tmpMsg.removeChild(tmpMsg.firstElementChild)
       if (ev.target.checked || (!ev.target.checked && repoObj.theWebHook)) { // If able to change repo webhook
