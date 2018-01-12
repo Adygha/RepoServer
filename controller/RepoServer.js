@@ -32,7 +32,9 @@ module.exports = class {
     this._dbModel.addListener('message', this._consView.displayMessage)
 
     this._svrApp = THE_EXP()
-    this._svrApp.use(THE_EXP.static(THE_PATH.join(process.cwd(), 'www'))) // I put this here so that static requests don't do extra load
+    if (process.env.NODE_ENV !== 'production') { // In production, nginx will handle this better
+      this._svrApp.use(THE_EXP.static(THE_PATH.join(process.cwd(), 'www'))) // I put this here so that static requests don't do extra load
+    }
     this._svrApp.engine('.hbs', THE_ENGN({
       layoutsDir: THE_PATH.join(process.cwd(), 'view/layouts'),   //
       partialsDir: THE_PATH.join(process.cwd(), 'view/partials'), // Needed for changing the 'views' name (or else errors happen).
