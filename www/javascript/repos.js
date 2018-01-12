@@ -151,6 +151,7 @@ class RepoBuilder {
         break
       case 'main-app-issues': // When visiting the main page and requesting this application's issue data
         let tmpIssuesContainer = document.getElementById('issues-container')
+        while (tmpIssuesContainer.firstChild) tmpIssuesContainer.removeChild(tmpIssuesContainer.firstChild) // Remove all children if any
         if (tmpData.content.length > 0) {
           tmpData.content.forEach(issue => tmpIssuesContainer.appendChild(this._issueFactory(issue)))
         } else {
@@ -176,12 +177,24 @@ class RepoBuilder {
           'An event recieved that ' + tmpData.content.event + ' was/were ' + tmpData.content.body.action + '. Please ' +
           (this._isMainPage ? 'refresh this page if it doesn\'t auto-refresh.' : 'visit main page to get the updates.')
         )
+        // Next, prepare a message/anchor to show that main app's repo issues are changed and scroll to message
+        let tmpRefrAnch = document.body.querySelector('.main-repo-message-anchor')
+        let removableMainHandler = (ev) => {
+          tmpRefrAnch.removeEventListener('click', removableMainHandler) // Only once
+          ev.preventDefault()
+          tmpRefrAnch.style.visibility = 'hidden'
+          this._websocketSend('main-app-issues', '')
+        }
+        tmpRefrAnch.addEventListener('click', removableMainHandler)
+        tmpRefrAnch.style.visibility = 'visible'
+        tmpRefrAnch.scrollIntoView(true)
         break
       case 'user-repos-event': // When user repo event recieved
         this._displayMessage(
           'An event ' + tmpData.content.event + ' was recieved that the repo ' + tmpData.content.body.repository.name +
           ' was changed. Please refresh the repo if it doesn\'t auto-refresh.'
         )
+        // Next, prepare a message/anchor to show that this specific repo is changed and scroll to it
         let tmpRefAnch = document.body.querySelector('#id' + tmpData.content.body.repository.id + ' .repo-message-anchor')
         let removableHandler = (ev) => {
           tmpRefAnch.removeEventListener('click', removableHandler) // Only once

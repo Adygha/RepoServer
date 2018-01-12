@@ -21,6 +21,7 @@ fieldset input[type='text'] {
   margin-bottom: 5px;
 }
 
+.main-repo-message-anchor,
 fieldset .repo-message-anchor {
   display: block;
   text-align: center;
@@ -31,6 +32,7 @@ fieldset .repo-message-anchor {
   /* display: none; */
 }
 
+.main-repo-message-anchor:hover,
 fieldset .repo-message-anchor:hover {
   background-color: orangered;
 }
