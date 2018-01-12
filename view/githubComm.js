@@ -431,7 +431,7 @@ class GithubCommunicator {
           .catch(() => { // Here, the webhook is most likely already created
             this.websocketSend(JSON.stringify({ // only send for this webhook (and dont fail the whole process)
               type: 'error',
-              message: 'The webhook requested is already created. Re-login or delete repo\'s webhooks if it is not.'
+              message: 'The webhook requested cannot be created or already created. Re-login or delete repo\'s webhooks if it is not.'
             }), sockID)
           })
         break
