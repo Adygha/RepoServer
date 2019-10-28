@@ -132,3 +132,4 @@ $RECYCLE.BIN/
 
 # MINE
 config/
+package-lock.json
