@@ -24,14 +24,14 @@
   },
   "homepage": "https://github.com/1dv523/ja223gs-examination-3#readme",
   "dependencies": {
-    "body-parser": "^1.18.2",
-    "connect-mongo": "^2.0.0",
-    "cookie": "^0.3.1",
-    "cookie-signature": "^1.0.6",
-    "express": "^4.16.2",
-    "express-handlebars": "^3.0.0",
-    "express-session": "^1.15.6",
-    "mongoose": "^4.13.7",
-    "websocket-driver": "^0.7.0"
+    "body-parser": "^1.19.0",
+    "connect-mongo": "^3.1.0",
+    "cookie": "^0.4.0",
+    "cookie-signature": "^1.1.0",
+    "express": "^4.17.1",
+    "express-handlebars": "^3.1.0",
+    "express-session": "^1.17.0",
+    "mongoose": "^5.7.7",
+    "websocket-driver": "^0.7.3"
   }
 }
