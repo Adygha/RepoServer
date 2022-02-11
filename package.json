@@ -29,7 +29,7 @@
     "cookie": "^0.4.0",
     "cookie-signature": "^1.1.0",
     "express": "^4.17.1",
-    "express-handlebars": "^3.1.0",
+    "express-handlebars": "^5.3.1",
     "express-session": "^1.17.0",
     "mongoose": "^5.7.7",
     "websocket-driver": "^0.7.3"
